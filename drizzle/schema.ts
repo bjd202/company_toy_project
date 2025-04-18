@@ -61,3 +61,14 @@ export const snackRequests = pgTable("snack_requests", {
   updatedAt: timestamp("updated_at").defaultNow(),
   approvedBy: integer("approved_id").references(() => users.id), // 승인자 (nullable)
 });
+
+export const snackLogs = pgTable("snack_logs", {
+  id: serial("id").primaryKey(),
+  snack_id: integer("snack_id").notNull().references(() => snacks.id),
+  action: varchar("action", {length: 20}).notNull(),
+  changeQuantity: integer("change_quantity"),
+  beforeQuantity: integer("before_quantity"),
+  afterQuantity: integer("after_quantity"),
+  userId: integer("userId").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
