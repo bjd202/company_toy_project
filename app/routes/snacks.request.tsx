@@ -5,7 +5,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { desc, eq } from "drizzle-orm";
 import { snackRequests, users } from "drizzle/schema";
 import { Pencil, Plus, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { AppSidebar } from "~/components/app-sidebar";
 import { DataTable } from "~/components/common/data-table";
@@ -19,6 +19,7 @@ import {
   BreadcrumbSeparator,
 } from "~/components/ui/breadcrumb";
 import { Button } from "~/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select";
 import {
   SidebarInset,
   SidebarProvider,
@@ -310,6 +311,13 @@ export default function SnacksRequestPage() {
   const [open, setOpen] = useState(false);
   const [initialData, setInitialData] = useState<SnackRequest | undefined>(undefined);
   const columns = getSnackRequestsColumns(isAdmin, userId, revalidate, setOpen, setInitialData);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+
+  const filteredData = useMemo(() => {
+    if (statusFilter === "all") return data;
+    return data.filter((item: SnackRequest) => item.status === statusFilter);
+  }, [data, statusFilter]);
+  
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -358,7 +366,22 @@ export default function SnacksRequestPage() {
             </Button>
           </div>
 
-          <DataTable columns={columns} data={data} />
+          <div className="mb-4 flex gap-2">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="상태 필터" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">전체</SelectItem>
+                <SelectItem value="pending">요청</SelectItem>
+                <SelectItem value="approved">승인</SelectItem>
+                <SelectItem value="rejected">거절</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+
+          <DataTable columns={columns} data={filteredData} />
         </div>
 
         <StockRequestDrawerForm
