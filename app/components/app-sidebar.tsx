@@ -77,6 +77,10 @@ const data = {
           title: "간식 요청",
           url: "/snacks/request",
         },
+        {
+          title: "간식 이력",
+          url: "/snacks/history",
+        },
       ],
     },
     {

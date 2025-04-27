@@ -8,6 +8,20 @@
       "when": 1744723069328,
       "tag": "0000_melted_sugar_man",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1745045468449,
+      "tag": "0001_premium_cable",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1745120565367,
+      "tag": "0002_thin_invaders",
+      "breakpoints": true
     }
   ]
 }

@@ -26,6 +26,7 @@ import {
   SidebarTrigger,
 } from "~/components/ui/sidebar";
 import { db } from "~/lib/db";
+import { logSnackAction } from "~/lib/snack-history";
 import { getUser } from "~/utils/auth.server";
 
 type SnackRequest = {
@@ -105,7 +106,6 @@ const getSnackRequestsColumns = (
         const handleApproved = async () => {
           if (!isAdmin || snackRequest.status === "approved") return;
       
-          debugger;
           const res = await fetch(`/snacks/request/${snackRequest.id}/approved`, {
             method: "POST",
             headers: {
@@ -228,7 +228,7 @@ const getSnackRequestsColumns = (
   ];
 };
 
-export async function action({request}: ActionFunctionArgs) {
+export async function action({ request }: ActionFunctionArgs) {
   const user = await getUser(request);
   const formData = await request.formData();
   const raw = Object.fromEntries(formData);
@@ -241,40 +241,60 @@ export async function action({request}: ActionFunctionArgs) {
     );
   }
 
-  const {id, name, quantity, reason, url} = parsed.data;
+  const { id, name, quantity, reason, url } = parsed.data;
 
   try {
-    if (id) {
-      await db
-      .update(snackRequests)
-      .set({
-        name,
-        quantity,
-        reason,
-        url,
-        status: "pending",
-        updatedAt: new Date(),
-      })
-      .where(eq(snackRequests.id, Number(id)));
-    }else{
-      await db
-      .insert(snackRequests).values({
-        name,
-        quantity,
-        reason,
-        url,
-        createdAt: new Date(),
-        createdId: user.id,
-        updatedAt: new Date(),
-        status: "pending",
-      })
-    }
+    await db.transaction(async (tx) => {
+      if (id) {
+        await tx.update(snackRequests)
+          .set({
+            name,
+            quantity,
+            reason,
+            url,
+            status: "pending",
+            updatedAt: new Date(),
+          })
+          .where(eq(snackRequests.id, Number(id)));
 
-    return Response.json({success: true});
+        await logSnackAction(tx, {
+          snackId: null,
+          userId: user.id,
+          action: "edit",
+          quantity,
+          memo: `간식 요청 수정: ${name}`,
+        });
+      } else {
+        const [created] = await tx.insert(snackRequests)
+          .values({
+            name,
+            quantity,
+            reason,
+            url,
+            createdAt: new Date(),
+            createdId: user.id,
+            updatedAt: new Date(),
+            status: "pending",
+          })
+          .returning({ id: snackRequests.id });
+
+        await logSnackAction(tx, {
+          snackId: null,
+          userId: user.id,
+          action: "add",
+          quantity,
+          memo: `간식 요청 추가: ${name}`,
+        });
+      }
+    });
+
+    return Response.json({ success: true });
   } catch (error) {
-    alert("서버 에러");
-    return Response.json({success: false, error: "서버 에러"}, 
-      {status: 500,})
+    console.error("간식 요청 처리 오류:", error);
+    return Response.json(
+      { success: false, error: "서버 오류" },
+      { status: 500 }
+    );
   }
 }
 

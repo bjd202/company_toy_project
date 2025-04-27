@@ -1,6 +1,6 @@
 // drizzle/schema.ts
 import { relations } from "drizzle-orm";
-import { date, integer, pgTable, serial, text, timestamp, varchar } from "drizzle-orm/pg-core";
+import { boolean, date, integer, pgTable, serial, text, timestamp, varchar } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -62,13 +62,22 @@ export const snackRequests = pgTable("snack_requests", {
   approvedBy: integer("approved_id").references(() => users.id), // 승인자 (nullable)
 });
 
-export const snackLogs = pgTable("snack_logs", {
+export const snackHistories = pgTable("snack_histories", {
   id: serial("id").primaryKey(),
-  snack_id: integer("snack_id").notNull().references(() => snacks.id),
-  action: varchar("action", {length: 20}).notNull(),
-  changeQuantity: integer("change_quantity"),
-  beforeQuantity: integer("before_quantity"),
-  afterQuantity: integer("after_quantity"),
-  userId: integer("userId").notNull().references(() => users.id),
+  snackId: integer("snack_id").references(() => snacks.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  action: varchar("action", { length: 20 }).notNull(), 
+  quantity: integer("quantity"),
+  memo: text("memo"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+
+export const snackAlerts = pgTable("snack_alerts", {
+  id: serial("id").primaryKey(),
+  snackId: integer("snack_id").references(() => snacks.id),
+  expireDate: date("expire_date"),
+  daysLeft: integer("days_left"),
+  isRead: boolean("is_read").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });

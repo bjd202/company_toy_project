@@ -26,6 +26,7 @@ import {
   SidebarTrigger,
 } from "~/components/ui/sidebar";
 import { db } from "~/lib/db";
+import { logSnackAction } from "~/lib/snack-history";
 import { getUser } from "~/utils/auth.server";
 
 type Snack = {
@@ -195,7 +196,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
 export async function action({ request }: ActionFunctionArgs) {
   const user = await getUser(request);
   const formData = await request.formData();
-  console.log(Object.fromEntries(formData));
   const raw = Object.fromEntries(formData);
   const parsed = snackSchema.safeParse(raw);
 
@@ -208,7 +208,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
   const { id, name, quantity, expireDate } = parsed.data;
 
-  // 중복 이름 검사 (id가 없거나 다른 id와 같은 이름이면 중복)
+  // 중복 이름 검사 (수정 시 다른 ID와 중복된 이름이면 안 됨)
   const existing = await db.query.snacks.findFirst({
     where: and(
       eq(snacks.name, name),
@@ -228,32 +228,58 @@ export async function action({ request }: ActionFunctionArgs) {
     );
   }
 
-  if (id) {
-    // 수정
-    await db
-      .update(snacks)
-      .set({
-        name,
-        quantity,
-        expireDate,
-        updatedAt: new Date(),
-        updatedId: user.id,
-      })
-      .where(eq(snacks.id, Number(id)));
-  } else {
-    // 추가
-    await db.insert(snacks).values({
-      name,
-      quantity,
-      expireDate,
-      createdAt: new Date(),
-      createdId: user.id,
-      updatedAt: new Date(),
-      updatedId: user.id,
-    });
-  }
+  try {
+    await db.transaction(async (tx) => {
+      if (id) {
+        // 수정
+        await tx
+          .update(snacks)
+          .set({
+            name,
+            quantity,
+            expireDate,
+            updatedAt: new Date(),
+            updatedId: user.id,
+          })
+          .where(eq(snacks.id, Number(id)));
 
-  return Response.json({ success: true });
+        await logSnackAction(tx, {
+          snackId: Number(id),
+          userId: user.id,
+          action: "edit",
+          quantity,
+          memo: "간식 수정",
+        });
+      } else {
+        // 추가
+        const [inserted] = await tx
+          .insert(snacks)
+          .values({
+            name,
+            quantity,
+            expireDate,
+            createdAt: new Date(),
+            createdId: user.id,
+            updatedAt: new Date(),
+            updatedId: user.id,
+          })
+          .returning({ id: snacks.id });
+
+        await logSnackAction(tx, {
+          snackId: inserted.id,
+          userId: user.id,
+          action: "add",
+          quantity,
+          memo: "간식 추가",
+        });
+      }
+    });
+
+    return Response.json({ success: true });
+  } catch (error) {
+    console.error("간식 추가/수정 실패:", error);
+    return Response.json({ success: false, error: "서버 오류" }, { status: 500 });
+  }
 }
 
 export default function SnacksStockPage() {

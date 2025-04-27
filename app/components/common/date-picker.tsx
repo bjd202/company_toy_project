@@ -106,7 +106,7 @@ export function DatePicker({
             setOpen(false);
           }}
           locale={ko}
-          fromDate={new Date()}
+          // fromDate={new Date()}
           month={date}
           initialFocus
         />
